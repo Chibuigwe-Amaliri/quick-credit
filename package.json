@@ -1,0 +1,29 @@
+{
+  "name": "quick-credidt--backend",
+  "version": "1.0.0",
+  "description": "quick credit backend",
+  "repository": {
+    "type": "git",
+    "url": "quick-credit-backend"
+  },
+  "license": "ISC",
+  "author": "Chibuigwe",
+  "type": "commonjs",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js",
+    "start-server": "node app.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "mongodb": "^7.5.0",
+    "mongoose": "^9.9.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
