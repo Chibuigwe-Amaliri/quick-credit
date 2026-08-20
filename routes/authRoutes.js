@@ -18,7 +18,6 @@ router.post('/api/v1/auth/signup',
                 }
             })
         })
-        .withMessage('Please enter a valid email.')
         .normalizeEmail(),
 
         body('password')

@@ -5,24 +5,34 @@ exports.getUserProfile = (req, res, next) => {
     User.findById(userId).select('-password')
     .then(user => {
         if(!user) {
-            return res.status(404).json({
-                status: 404,
-                error: 'User not found'
-            });
+            const error = new Error('This user cannot be found.');
+            error.statusCode = 401;
+            throw error;
         }
 
         if(user.status === 'unverified') {
-            return res.status(404).json({
-                status: 404,
-                error: "Please check your email or write to admin to verify your account"
-            });
+            const error = new Error('Please very your account and continue.');
+            error.statusCode = 401;
+            throw error;
         }
+
         return res.status(200).json({
-            status: 200,
-            data: user
+            meta: { 
+                status: 200,
+                message: "succesfully approved auth token"
+            },
+
+            data: {
+                result: {
+                    user: user
+                }
+            }
         });
     })
     .catch(err => {
-        next(err);
+      if (!err.statusCode) {
+        err.statusCode = 500;
+      }
+      next(err);
     });
 }
