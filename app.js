@@ -7,6 +7,7 @@ const app = express();
 
 const authRoutes = require('./routes/authRoutes');
 const usersRoute = require('./routes/userRoutes');
+const loanRoute = require('./routes/loanRoutes');
 
 app.use(express.json());
 
@@ -16,6 +17,7 @@ const port = process.env.PORT || 8080;
 
 app.use(authRoutes);
 app.use(usersRoute);
+app.use(loanRoute);
 
 app.use((error, req, res, next) => {
     const status = error.statusCode || 500;
@@ -33,12 +35,14 @@ app.use((error, req, res, next) => {
     });
 });
 
-mongoose.connect(mongoURI)
-.then(result => {
-    console.log('Connected to MongoDB');
-        app.listen(port);
-}).catch(err => {
-    const error = new Error(err);
-    error.statusCode = 500;
-    next(err);
+mongoose
+  .connect(mongoURI)
+  .then(result => {
+   app.listen(port, () => {
+      console.log('Server started');
+    });
+  })
+  .catch(err => {
+    console.log('MongoDB connection failed:', err);
+    process.exit(1);
   });
