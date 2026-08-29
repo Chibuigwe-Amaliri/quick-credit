@@ -80,6 +80,7 @@ exports.postSignIn = (req, res, next) => {
         const error = new Error('Validation failed.');
         error.statusCode = 422;
         error.data = errors.array();
+        console.log(error.data[0].msg)
         throw error;
     }
     const email = req.body.email;
@@ -103,7 +104,7 @@ exports.postSignIn = (req, res, next) => {
     .then(isEqual => {
     // confirm if the password is equall
     if(!isEqual) {
-        const error = new Error('Validation failed.');
+        const error = new Error('Password does not match.');
         error.statusCode = 401;
         throw error;
     }

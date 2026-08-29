@@ -1,24 +1,15 @@
-const User = require('../models/user');
+const {usersAuthorization} = require('../middleware/userauth');
 
 exports.getUserProfile = (req, res, next) => {
-    const userId = req.userId;
-    User.findById(userId).select('-password')
-    .then(user => {
-        if(!user) {
-            const error = new Error('This user cannot be found.');
-            error.statusCode = 401;
-            throw error;
-        }
 
-        if(user.status === 'unverified') {
-            const error = new Error('Please very your account and continue.');
-            error.statusCode = 401;
-            throw error;
-        }
+    const user = req.user;
 
-        return res.status(200).json({
+    try {
+        usersAuthorization(user);
+
+         return res.status(200).json({
             meta: { 
-                status: 200,
+                statusCode: 200,
                 message: "succesfully approved auth token"
             },
 
@@ -28,11 +19,33 @@ exports.getUserProfile = (req, res, next) => {
                 }
             }
         });
-    })
-    .catch(err => {
-      if (!err.statusCode) {
-        err.statusCode = 500;
-      }
-      next(err);
-    });
+    }catch(err){
+        next(err)
+    }
+//     User.findById(userId).select('-password')
+//     .then(userDoc => {
+
+//         //req.user = userDoc;
+
+//         usersAuthorization(userDoc)
+
+//         return res.status(200).json({
+//             meta: { 
+//                 statusCode: 200,
+//                 message: "succesfully approved auth token"
+//             },
+
+//             data: {
+//                 result: {
+//                     user: userDoc
+//                 }
+//             }
+//         });
+//     })
+//     .catch(err => {
+//       if (!err.statusCode) {
+//         err.statusCode = 500;
+//       }
+//       next(err);
+//     });
 }

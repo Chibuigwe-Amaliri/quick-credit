@@ -8,6 +8,7 @@ const app = express();
 const authRoutes = require('./routes/authRoutes');
 const usersRoute = require('./routes/userRoutes');
 const loanRoute = require('./routes/loanRoutes');
+const adminRoute = require('./routes/adminRoutes');
 
 app.use(express.json());
 
@@ -16,7 +17,11 @@ const mongoURI = process.env.MONGODB_URI;
 const port = process.env.PORT || 8080;
 
 app.use(authRoutes);
+
 app.use(usersRoute);
+
+app.use(adminRoute);
+
 app.use(loanRoute);
 
 app.use((error, req, res, next) => {
