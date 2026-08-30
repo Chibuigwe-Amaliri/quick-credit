@@ -20,4 +20,20 @@ router.get(
     adminController.getAllLoans
 )
 
+router.get(
+    '/api/v1/admin/:loanId/loan', 
+    authMiddleware.authenticateUser, 
+    authMiddleware.loadUser, 
+    authMiddleware.adminAuthorization, 
+    adminController.getSingleLoan
+)
+
+router.patch(
+    '/api/v1/admin/:loanId/status', 
+    authMiddleware.authenticateUser, 
+    authMiddleware.loadUser, 
+    authMiddleware.adminAuthorization, 
+    adminController.updateLoanStatus
+)
+
 module.exports = router;

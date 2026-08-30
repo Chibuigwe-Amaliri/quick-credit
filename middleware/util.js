@@ -21,3 +21,4 @@ exports.calculateInterestRate = (tenor) => {
 
     return 12;
 };
+
