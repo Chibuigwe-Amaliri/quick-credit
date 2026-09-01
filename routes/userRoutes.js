@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/userauth');
+const userauth = require('../middleware/userauth');
 const userController = require('../controllers/userController');
  
 // POST /api/users/register
-router.get('/api/v1/users/profile', authMiddleware.authenticateUser, userController.getUserProfile);
+router.get('/api/v1/users/profile', userauth.authenticateUser, userauth.loadUser, userController.getUserProfile);
 
 module.exports = router;
+
+

@@ -1,7 +1,6 @@
 const {calculateInterestRate} = require('../middleware/util');
 const Loan = require('../models/loan');
 
-
 exports.postLoan = (req, res, next) => {
     //const unVerified = req.params.userId;
     const verifiedId = req.userId;
@@ -40,10 +39,7 @@ exports.postLoan = (req, res, next) => {
             }
           
         }
-
        
-       
-        
         const userId = req.userId;
         const loanAmount = req.body.loanAmount;
         const tenor = req.body.tenor;

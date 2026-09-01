@@ -17,6 +17,11 @@ const repaymentSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    recordedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
   },
   {
     timestamps: {

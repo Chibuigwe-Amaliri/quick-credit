@@ -72,7 +72,6 @@ exports.postLoanRepayment = (req, res, next) => {
                 statusCode: 200,
                 message: "Repayment was successfully processed"
             },
-
             data:{ 
                 result:{
                     loanUpdate: updatedLoan,
@@ -84,7 +83,6 @@ exports.postLoanRepayment = (req, res, next) => {
     .catch(err => {
        next(err);
     })
-
 
 }
 
