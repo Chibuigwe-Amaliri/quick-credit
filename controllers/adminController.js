@@ -1,18 +1,16 @@
 const User = require('../models/user');
 const Loan = require('../models/loan');
+const Repayment = require('../models/repayment');
 const mongoose = require('mongoose');
+const util = require('../middleware/util');
 
 exports.verifyUserHandler = async(req, res, next) => {
 
-const usersId = req.params.userId;
+const id = req.params.userId;
 
     try {
 
-        if (!mongoose.Types.ObjectId.isValid(usersId)) {
-            const error = new Error("Invalid user ID");
-            error.statusCode = 400;
-            throw error;
-        }
+        const usersId = util.veryfiMongoId(id);
 
         const user = await User.findById(usersId);
         if(!user){
@@ -99,15 +97,11 @@ exports.getAllLoans = async (req, res, next) => {
 exports.getSingleLoan = async(req, res, next) => {
     // admin is already authenticated and authorized at this point
     // get the loanId
-    const loanId = req.params.loanId;
+    const id = req.params.loanId;
 
     try {
 
-        if (!mongoose.Types.ObjectId.isValid(loanId)) {
-            const error = new Error("Invalid loan ID");
-            error.statusCode = 400;
-            throw error;
-        }
+        const loanId = util.veryfiMongoId(id);
 
         const singleLoan = await Loan.findById(loanId)
         .populate('userId', 'firstName email status');
@@ -142,15 +136,11 @@ exports.getSingleLoan = async(req, res, next) => {
 }
 
 exports.updateLoanStatus =async(req, res, next) => {
-    const loanId = req.params.loanId;
+    const id = req.params.loanId;
     const status = req.body.status;
 
     try {
-        if (!mongoose.Types.ObjectId.isValid(loanId)) {
-            const error = new Error("Invalid loan ID");
-            error.statusCode = 400;
-            throw error;
-        }
+         const loanId = util.veryfiMongoId(id);
 
         if (status !== "approved" && status !== "rejected") {
             const error = new Error("You can only approve or reject a loan.");
@@ -168,7 +158,7 @@ exports.updateLoanStatus =async(req, res, next) => {
         
         if(singleLoan.status === "pending" ){
 
-            singleLoan.status = statusValue;
+            singleLoan.status = status;
 
         } else{
             const error = new Error("Loan status can only be changed when the loan is pending.");
@@ -191,6 +181,175 @@ exports.updateLoanStatus =async(req, res, next) => {
             }
         })
 
+    }catch(err) {
+        next(err);
+    }
+}
+
+exports.postRepayment = async(req, res,next) => {
+    const adminOperator = req.user;
+
+    const id = req.params.loanId;
+
+    const installment = req.body.installment;
+
+    try{
+       const loanId = util.veryfiMongoId(id);
+       const loanDoc = await Loan.findById(loanId)
+       .populate('userId');
+
+         if (!loanDoc) {
+            const error = new Error(
+                "This resource cannot be found"
+            );
+            error.statusCode = 404;
+            throw error;
+        };
+
+        const repaymentAmount = util
+        .validateRepayamount(loanDoc, installment);
+
+        const currentBalance = loanDoc.balance;
+        const currentPayment = repaymentAmount;
+
+        loanDoc.repay += currentPayment;
+        loanDoc.balance = currentBalance - currentPayment;
+       
+
+        // Complete loan if fully paid
+        if (loanDoc.balance === 0) {
+            loanDoc.status = "completed";
+        }
+
+        const repaymentHistory = new Repayment({
+            loanId : loanDoc._id,
+            userId: loanDoc.userId,
+            amount : repaymentAmount,
+            recordedBy: adminOperator._id
+        })
+       const {updatedLoan, savedRepayment} = await mongoose.connection.transaction(async(session) => {
+            // db operations
+           const updatedLoan = await loanDoc.save({ session});
+           const savedRepayment = await repaymentHistory.save({session});
+
+           return {
+                updatedLoan, 
+                savedRepayment
+            }
+       })
+
+       res.status(200).json({
+            meta: {
+                statusCode: 200,
+                message: "Repayment was successfully processed"
+            },
+
+            data: { 
+                result:{
+                    loan:{ 
+                        id:updatedLoan._id, 
+                        status: updatedLoan.status, 
+                        balance: updatedLoan.balance,
+                    }                   ,
+                    repayment: {
+                        amount:savedRepayment.amount,
+                        recordedBy: savedRepayment.recordedBy,
+                        Date: savedRepayment.createdOn
+                    }
+                }
+            }
+        })
+    
+    }catch(err) {
+        next(err);
+    } 
+}
+
+
+exports.repaidLoans = async(req, res, next) => {
+    try {
+
+        const loans = await Loan.find();
+    
+        if(loans.length <= 0) {
+            const error = new Error("There are no avalable loan");
+            error.statusCode = 404;
+            throw error;
+        }
+    
+        const completedLoans = loans.filter(loan => 
+            loan.status === "completed" && loan.balance === 0
+        )
+        .map(loan => {
+            return {
+                loanId: loan._id,
+                status: loan.status,
+                balance: loan.balance
+            };
+        })
+
+        if(completedLoans.length === 0) {
+            const error = new Error("There are no repaid loan");
+            error.statusCode = 404;
+            throw error;
+        }
+    
+        res.status(200).json({
+            meta: {
+                statusCode: 200,
+                message: "successfully retrieved all repaid loans"
+            },
+            data: {
+                result: completedLoans
+            }
+        })
+    }catch(err) {
+        next(err);
+    }
+
+}
+
+exports.notFullyRepaidLoans = async(req, res, next) => {
+      try {
+
+        const loans = await
+        Loan.find()
+            .select('_id userId status balance totalAmount')
+            .populate('userId', 'firstName');
+
+        if(loans.length <= 0) {
+            const error = new Error("There are no avalable loan");
+            error.statusCode = 404;
+            throw error;
+        }
+    
+        const unCompletedLoans = loans.filter(loan => 
+            loan.status === "approved" && loan.balance > 0
+        )
+        .map(loan => {
+            return {
+                loanId: loan._id,
+                status: loan.status,
+                balance: loan.balance,
+                firstName: loan.userId.firstName
+            };
+        })
+
+        if(unCompletedLoans.length === 0) {
+            const error = new Error("There are no unpaid loans");
+            error.statusCode = 404;
+            throw error;
+        }
+    
+        res.status(200).json({
+            meta: {
+                statusCode: 200,
+                message: "Successfully retrieved all current loans"
+            },
+            data: {
+                result: unCompletedLoans
+            }
+        })
     }catch(err) {
         next(err);
     }
