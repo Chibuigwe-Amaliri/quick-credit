@@ -10,7 +10,7 @@ router.post('/api/v1/auth/signup',
         body('email')
         .trim()
         .isEmail()
-        .custom((value, {req}) => {
+        .custom((value) => {
             return User.findOne({email: value})
             .then(UserDoc => {
                 if(UserDoc) {

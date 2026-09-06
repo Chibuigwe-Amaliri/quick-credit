@@ -1,5 +1,4 @@
 require('dotenv').config();
-const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 
@@ -24,7 +23,7 @@ app.use(adminRoute);
 
 app.use(loanRoute);
 
-app.use((error, req, res, next) => {
+app.use((error, _req, res, _next) => {
     const status = error.statusCode || 500;
     const message = error.message;
     const data = error.data;
@@ -42,7 +41,7 @@ app.use((error, req, res, next) => {
 
 mongoose
   .connect(mongoURI)
-  .then(result => {
+  .then(() => {
    app.listen(port, () => {
       console.log('Server started');
     });

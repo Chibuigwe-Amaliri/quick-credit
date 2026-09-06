@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 exports.calculateInterestRate = (tenor) => {
     if (tenor < 1 || tenor > 12) {
         const error = new Error(
@@ -22,7 +23,7 @@ exports.calculateInterestRate = (tenor) => {
     return 12;
 };
 
-exports.validateRepayamount = (loanDoc, installment) => {
+exports.validateRepaymentAmount = (balance, installment) => {
     
         if (
             typeof installment !== "number" ||
@@ -47,7 +48,7 @@ exports.validateRepayamount = (loanDoc, installment) => {
         //const balance = loanDoc.balance;
         const repaymentAmount = Math.round(installment * 100);
 
-        if(repaymentAmount > loanDoc.balance) {
+        if(repaymentAmount > balance) {
             const error = new Error("Repayment amount cannot be greater than the outstanding balance");
             error.statusCode = 400;
             throw error;
