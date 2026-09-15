@@ -24,6 +24,10 @@ app.use(adminRoute);
 app.use(loanRoute);
 
 app.use((error, _req, res, _next) => {
+    if (error.code === 11000) {
+        error.statusCode = 409;
+        error.message = "A record with the provided details already exists";
+    }
     const status = error.statusCode || 500;
     const message = error.message;
     const data = error.data;

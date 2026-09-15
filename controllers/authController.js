@@ -60,7 +60,12 @@ exports.postSignUp = (req, res, next) => {
                 message: "successfully registered"
             },
             data: {
-                result:{userId: user._id.toString()}
+                result:{
+                    userId: user._id.toString(),
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                }
             }
         });
     })
@@ -115,7 +120,7 @@ exports.postSignIn = (req, res, next) => {
         userId : loadUser._id.toString()
         }, 
         process.env.JWT_SECRET_KEY,
-        {expiresIn: '1h'}
+        {expiresIn: '24h'}
     )
 
     return res.status(200).json({

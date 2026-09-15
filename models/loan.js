@@ -7,30 +7,27 @@ const loanSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: true
     },
 
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected',  'completed'],
-      default: 'pending',
+      enum: [
+        'pending', 
+        'approved',
+        'rejected', 
+        'completed'
+        ]
     },
 
-    repay: {
+    repayment: {
       type: Number,
       required: true,
       min: 0,
       default: 0,
     },
 
-    tenor: {
-      type: Number,
-      required: true,
-      min: 1,
-      max: 12,
-    },
-
-    loanAmountInKobo: {
+    appliedAmount: {
       type: Number,
       required: true,
       min: 0,
@@ -54,16 +51,29 @@ const loanSchema = new mongoose.Schema(
       min: 0,
     },
 
-    interestRate: {
+    loanDuration: {
       type: Number,
       required: true,
-      min: 0,
+      min: 1,
+      max: 12,
     },
+
     interest: {
       type: Number,
       required: true,
       min: 0,
     },
+
+    interestRate: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true
+    }
   },
   {
     timestamps: {
@@ -73,4 +83,13 @@ const loanSchema = new mongoose.Schema(
   }
 );
 
+loanSchema.index(
+  { userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isActive: true }
+  }
+);
+
 module.exports = mongoose.model('Loan', loanSchema);
+

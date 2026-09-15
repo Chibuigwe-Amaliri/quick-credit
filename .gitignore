@@ -2,3 +2,6 @@ node_modules/
 .env
 auth.text
 Rmap.text
+testing.js
+testing1.js
+service/

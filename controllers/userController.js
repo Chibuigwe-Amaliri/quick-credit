@@ -10,7 +10,7 @@ exports.getUserProfile = (req, res, next) => {
          return res.status(200).json({
             meta: { 
                 statusCode: 200,
-                message: "succesfully approved auth token"
+                message: "Authentication successful"
             },
 
             data: {
