@@ -2,22 +2,26 @@ const User = require('../models/user');
 const Loan = require('../models/loan');
 const Repayment = require('../models/repayment');
 const mongoose = require('mongoose');
-const util = require('../middleware/util');
+//const util = require('../middleware/util');
+const { validateRepaymentAmount } = require('../utils/validateRepaymentAmount');
+const {verifyMongoId} = require('../utils/verifyLoanInputValidation');
 
 exports.verifyUserHandler = async(req, res, next) => {
 
-const id = req.params.userId;
+    const id = req.params.userId;
 
     try {
 
-        const usersId = util.veryfiMongoId(id);
+        const usersId = verifyMongoId(id);
 
         const user = await User.findById(usersId);
+        
         if(!user){
             const error = new Error("User not found");
             error.statusCode = 404;
             throw error;
         }
+
         if(user.status === "verified") {
             const error = new Error("User has already been verified");
             error.statusCode = 400;
@@ -75,7 +79,7 @@ exports.getAllLoans = async (req, res, next) => {
                 tenor: loan.tenor,
                 installment: loan.installment,
                 repay: loan.repay/100,
-                balance: loan.balance
+                balance: loan.balance/100
             }
         });
 
@@ -101,7 +105,7 @@ exports.getSingleLoan = async(req, res, next) => {
 
     try {
 
-        const loanId = util.veryfiMongoId(id);
+        const loanId = verifyMongoId(id);
 
         const singleLoan = await Loan.findById(loanId)
         .populate('userId', 'firstName email status');
@@ -140,7 +144,7 @@ exports.updateLoanStatus =async(req, res, next) => {
     const status = req.body.status;
 
     try {
-         const loanId = util.veryfiMongoId(id);
+        const loanId = verifyMongoId(id);
 
         if (status !== "approved" && status !== "rejected") {
             const error = new Error("You can only approve or reject a loan.");
@@ -171,7 +175,7 @@ exports.updateLoanStatus =async(req, res, next) => {
         return res.status(200).json({
             meta: {
                 statusCode: 200,
-                message: "Loan status was successfully updated."
+                message: `Loan status was successfully ${savedStatus.status}.`
             },
             data:{
                 result: {
@@ -179,8 +183,7 @@ exports.updateLoanStatus =async(req, res, next) => {
                     loanId: savedStatus._id
                 }
             }
-        })
-
+        });
     }catch(err) {
         next(err);
     }
@@ -194,8 +197,12 @@ exports.postRepayment = async(req, res,next) => {
     const installment = req.body.installment;
 
     try{
-       const loanId = util.veryfiMongoId(id);
-       const loanDoc = await Loan.findById(loanId)
+       const loanId = verifyMongoId(id);
+       const loanDoc = await Loan.findOne({ 
+            _id:loanId, 
+            balance: { $gt: 0 }, 
+            status: 'approved'
+        })
        .populate('userId');
 
          if (!loanDoc) {
@@ -206,8 +213,7 @@ exports.postRepayment = async(req, res,next) => {
             throw error;
         };
 
-        const repaymentAmount = util
-        .validateRepayamount(loanDoc, installment);
+        const repaymentAmount = validateRepaymentAmount(loanDoc.balance, installment, loanDoc.paymentInstallment);
 
         const currentBalance = loanDoc.balance;
         const currentPayment = repaymentAmount;
@@ -219,6 +225,7 @@ exports.postRepayment = async(req, res,next) => {
         // Complete loan if fully paid
         if (loanDoc.balance === 0) {
             loanDoc.status = "completed";
+            loanDoc.isActive = false;
         }
 
         const repaymentHistory = new Repayment({

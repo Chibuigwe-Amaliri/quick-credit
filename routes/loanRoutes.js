@@ -7,9 +7,9 @@ const loanController = require('../controllers/loanController');
 router.post('/api/v1/loan', authenticateUser, loanController.postLoan);
 
 // POST /api/users/repayment
-router.patch('/api/v1/loan/repayment', authenticateUser, repaymentController.postLoanRepayment);
+router.patch('/api/v1/loan/:loanId/repayment', authenticateUser, repaymentController.postLoanRepayment);
 
-router.get('/api/v1/loan/:loanId/repayment', authenticateUser, repaymentController.getRepaymentHistory);
+router.get('/api/v1/loan/:loanId/payment-history', authenticateUser, repaymentController.getRepaymentHistory);
 
 
 module.exports = router;

@@ -79,21 +79,23 @@ exports.usersAuthorization = (user) => {
             error.statusCode = 401;
             throw error;
     }
-
-
 }
 
 exports.adminAuthorization = (req, res, next) => {
     const user = req.user;
     
     if(user.status === 'unverified') {
-            const error = new Error('Please very your account and continue.');
+            const error = new Error(
+                'Please very your account and continue.'
+            );
             error.statusCode = 401;
             throw error;
     }
 
     if(user.isAdmin !== true) {
-        const error = new Error("You are not authorized to view this page");
+        const error = new Error(
+            "You are not authorized to view this page"
+        );
         error.statusCode = 403;
         throw error;
     }

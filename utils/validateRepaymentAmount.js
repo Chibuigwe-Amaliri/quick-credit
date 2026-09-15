@@ -1,29 +1,4 @@
-const mongoose = require('mongoose');
-exports.calculateInterestRate = (tenor) => {
-    if (tenor < 1 || tenor > 12) {
-        const error = new Error(
-            "Tenor must be between 1 and 12 months"
-        );
-        error.statusCode = 400;
-        throw error;
-    }
-
-    if (tenor <= 3) {
-        return 3;
-    }
-
-    if (tenor <= 6) {
-        return 6;
-    }
-
-    if (tenor <= 9) {
-        return 10;
-    }
-
-    return 12;
-};
-
-exports.validateRepaymentAmount = (balance, installment) => {
+exports.validateRepaymentAmount = (balance, installment, paymentInstallment) => {
     
         if (
             typeof installment !== "number" ||
@@ -46,23 +21,25 @@ exports.validateRepaymentAmount = (balance, installment) => {
         };
 
         //const balance = loanDoc.balance;
-        const repaymentAmount = Math.round(installment * 100);
-
-        if(repaymentAmount > balance) {
+        const repayment = Math.round(installment * 100);
+       
+        if(repayment > balance) {
             const error = new Error("Repayment amount cannot be greater than the outstanding balance");
             error.statusCode = 400;
             throw error;
         }
-    
-    return repaymentAmount;
-}
 
-exports.veryfiMongoId = (id) => {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        const error = new Error("The provided ID is invalid.");
+        if(repayment < paymentInstallment && paymentInstallment <= balance){
+        const error = new Error("payment must be equall to installment or more");
         error.statusCode = 400;
         throw error;
-    }
-
-    return id;
+        }
+        
+        if(paymentInstallment > repayment && balance <  paymentInstallment && repayment !== balance){
+        const error = new Error("Complete the amount and continue");
+        error.statusCode = 400;
+        throw error;
+        }
+    
+    return repayment
 }

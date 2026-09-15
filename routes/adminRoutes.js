@@ -5,7 +5,7 @@ const adminController = require('../controllers/adminController');
 
 // Verify user
 router.patch(
-    '/api/v1/admin/:userId/verify', 
+    '/api/v1/admin/:userId/verify-user', 
     authMiddleware.authenticateUser, 
     authMiddleware.loadUser, 
     authMiddleware.adminAuthorization, 

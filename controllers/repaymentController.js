@@ -1,13 +1,50 @@
 const Loan = require('../models/loan');
 const loanRepayment = require('../models/repayment');
+const Idempotency = require('../models/idempotency');
 const mongoose = require('mongoose');
+const { verifyMongoId } = require('../utils/verifyLoanInputValidation');
 
-exports.postLoanRepayment = (req, res, next) => {
+const {validateRepaymentAmount} = require('../utils/validateRepaymentAmount');
+
+
+exports.postLoanRepayment = async(req, res, next) => {
     const userId = req.userId;
-    const firstInstallment = req.body.amount;
+    const repayment = req.body.loanRepayment;
+    const loanId = req.params.loanId;
+    
+    const idempotencyKey = req.get("Idempotency-key");
 
-    Loan.findOne({userId: userId, balance: { $gt: 0 } })
-    .then(loanDoc => {
+try {
+    // check for the idempotency key
+    if(!idempotencyKey){
+        const error = new Error(
+            "Idempotency-Key header is required"
+        );
+        error.statusCode = 400;
+        throw error;
+    }
+
+    // check if the request has already been made
+    const existingRequest = await Idempotency.findOne({
+        key: idempotencyKey,
+        userId: userId
+    });
+
+    if(existingRequest) {
+        return res.status(
+            existingRequest.response.meta.statusCode
+        ).json(
+            existingRequest.response
+        )
+    }
+
+    // Mongobe transaction to ensure atomicity of the repayment 
+    const response = await mongoose.connection.transaction(async(session) => {
+        const loanDoc = await Loan
+        .findOne({userId: userId, _id:loanId, balance: { $gt: 0 }, status: 'approved'})
+        .session(session)
+        
+
         if (!loanDoc) {
             const error = new Error(
                 "You do not have an outstanding loan to repay"
@@ -15,91 +52,91 @@ exports.postLoanRepayment = (req, res, next) => {
             error.statusCode = 404;
             throw error;
         };
+    
+        const repaymentAmount = validateRepaymentAmount(loanDoc.balance, repayment, loanDoc.paymentInstallment);
 
-        if (
-            typeof firstInstallment !== "number" ||
-            !Number.isFinite(firstInstallment) ||
-            firstInstallment <= 0
-        ) {
-            const error = new Error(
-                "Repayment amount must be a valid positive number"
-            );
-            error.statusCode = 400;
-            throw error;
-        };
-
-       if (Math.round(firstInstallment * 100) !== firstInstallment * 100) {
-            const error = new Error(
-                "Repayment amount cannot have more than 2 decimal places"
-            );
-            error.statusCode = 400;
-            throw error;
-        };
-
-        //const balance = loanDoc.balance;
-        const repaymentAmount = Math.round(firstInstallment * 100);
-
-        if(repaymentAmount > loanDoc.balance) {
-            const error = new Error("Repayment amount cannot be greater than the outstanding balance");
-            error.statusCode = 400;
-            throw error;
-        }
-        const currentBalance = loanDoc.balance;
-        const currentPayment = repaymentAmount;
-
-        loanDoc.repay += currentPayment;
-        loanDoc.balance = currentBalance - currentPayment;
+        loanDoc.repayment += repaymentAmount;
+        loanDoc.balance = loanDoc.balance - repaymentAmount;
 
         // Complete loan if fully paid
         if (loanDoc.balance === 0) {
             loanDoc.status = "completed";
+            loanDoc.isActive = false;
         }
 
         const repaymentHistory = new loanRepayment({
-             loanId : loanDoc._id,
-             userId: req.userId,
-             amount : repaymentAmount
+                loanId : loanDoc._id,
+                userId: userId,
+                amount : repaymentAmount,
+                recordedBy: userId,
         })
 
-        return Promise.all([
-            loanDoc.save(),
-            repaymentHistory.save()
-        ]);
-    })
-    .then(([updatedLoan, repaymentHistory]) => {
-        res.status(200).json({
+        const updatedLoan = await loanDoc.save({session});
+        const savedRepayment = await repaymentHistory.save({session});
+        
+        const response = {
             meta:  {
                 statusCode: 200,
                 message: "Repayment was successfully processed"
             },
             data:{ 
                 result:{
-                    loanUpdate: updatedLoan,
-                    repayment: repaymentHistory
+                    loanUpdate: {
+                        id:updatedLoan._id, 
+                        status: updatedLoan.status, 
+                        balance: updatedLoan.balance/100,
+                    },
+                    repayment: {
+                        id: savedRepayment._id,
+                        amount: savedRepayment.amount/100,
+                        recordedBy: savedRepayment.recordedBy,
+                        createdOn: savedRepayment.createdOn
+                    }
                 }
             }
-        })
-    })
-    .catch(err => {
-       next(err);
+        }
+        // create idempotency
+        await Idempotency.create(
+           [{
+                key: idempotencyKey,
+                userId: userId,
+                status: "completed",
+                response: response
+            }],
+            { session }
+        );
+
+        return response;
     })
 
+    return res.status(200).json(response);
+
+    }catch(err) {
+       if (err.code === 11000 && err.keyPattern?.key) {
+            const existingRequest = await Idempotency.findOne({
+                key: idempotencyKey,
+                userId: userId
+            });
+
+            if (existingRequest) {
+                return res
+                    .status(existingRequest.response.meta.statusCode)
+                    .json(existingRequest.response);
+            }
+        }
+        next(err)
+    }
 }
 
 exports.getRepaymentHistory = (req, res, next) => {
-    const loanId = req.params.loanId;
-    if(!loanId) {
+    const id = req.params.loanId;
+    if(!id) {
         const error = new Error("Loan ID is required");
         error.statusCode = 400;
         throw error;
     }
+    const loanId = verifyMongoId(id);
 
-    if (!mongoose.Types.ObjectId.isValid(loanId)) {
-        // loanId is not a valid MongoDB ObjectId
-        const error = new Error("Invalid loan ID");
-        error.statusCode = 400;
-        throw error;
-    }
     Loan.findById(loanId)
     .then(userLoan => {
         if(!userLoan){
@@ -114,7 +151,8 @@ exports.getRepaymentHistory = (req, res, next) => {
             throw error;
         }
         return loanRepayment.find({loanId: loanId}).sort({createdOn: -1})
-        //return res.status(200).json({data: usersLoan})
+        .populate('recordedBy', 'firstName lastName email');
+       
     })
     .then(repaymentHistory => {
         if(repaymentHistory.length === 0) {
@@ -133,7 +171,8 @@ exports.getRepaymentHistory = (req, res, next) => {
             return  {
                 date: r.createdOn , 
                 amount: r.amount/100, 
-                repaymentId: r._id.toString()
+                repaymentId: r._id.toString(),
+                recordedBy: r.recordedBy.firstName + " " + r.recordedBy.lastName
             }
         })
         res.status(200).json({
