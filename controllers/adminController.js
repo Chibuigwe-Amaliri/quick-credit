@@ -2,9 +2,10 @@ const User = require('../models/user');
 const Loan = require('../models/loan');
 const Repayment = require('../models/repayment');
 const mongoose = require('mongoose');
-//const util = require('../middleware/util');
+const Idempotency = require('../middleware/idempotency');
+
 const { validateRepaymentAmount } = require('../utils/validateRepaymentAmount');
-const {verifyMongoId} = require('../utils/verifyLoanInputValidation');
+const {verifyMongoId} = require('../utils/verifyLoanInputvalidation');
 
 exports.verifyUserHandler = async(req, res, next) => {
 
@@ -190,20 +191,24 @@ exports.updateLoanStatus =async(req, res, next) => {
 }
 
 exports.postRepayment = async(req, res,next) => {
-    const adminOperator = req.user;
+
+    const adminOperator = req.userId;
 
     const id = req.params.loanId;
 
-    const installment = req.body.installment;
+    const repayment = req.body.loanRepayment;
+
+    const idempotencyKey = req.headers['idempotency-key'];
 
     try{
+     const response = await mongoose.connection.transaction(async(session) => {
+            // db operations
        const loanId = verifyMongoId(id);
        const loanDoc = await Loan.findOne({ 
             _id:loanId, 
             balance: { $gt: 0 }, 
             status: 'approved'
-        })
-       .populate('userId');
+        }).session(session);
 
          if (!loanDoc) {
             const error = new Error(
@@ -213,15 +218,11 @@ exports.postRepayment = async(req, res,next) => {
             throw error;
         };
 
-        const repaymentAmount = validateRepaymentAmount(loanDoc.balance, installment, loanDoc.paymentInstallment);
+        const repaymentAmount = validateRepaymentAmount(loanDoc.balance, repayment, loanDoc.paymentInstallment);
 
-        const currentBalance = loanDoc.balance;
-        const currentPayment = repaymentAmount;
-
-        loanDoc.repay += currentPayment;
-        loanDoc.balance = currentBalance - currentPayment;
+        loanDoc.repayment += repaymentAmount;
+        loanDoc.balance -= repaymentAmount;
        
-
         // Complete loan if fully paid
         if (loanDoc.balance === 0) {
             loanDoc.status = "completed";
@@ -232,42 +233,61 @@ exports.postRepayment = async(req, res,next) => {
             loanId : loanDoc._id,
             userId: loanDoc.userId,
             amount : repaymentAmount,
-            recordedBy: adminOperator._id
+            recordedBy: adminOperator
         })
-       const {updatedLoan, savedRepayment} = await mongoose.connection.transaction(async(session) => {
-            // db operations
+      
            const updatedLoan = await loanDoc.save({ session});
            const savedRepayment = await repaymentHistory.save({session});
-
-           return {
-                updatedLoan, 
-                savedRepayment
-            }
-       })
-
-       res.status(200).json({
-            meta: {
-                statusCode: 200,
-                message: "Repayment was successfully processed"
-            },
-
-            data: { 
-                result:{
-                    loan:{ 
-                        id:updatedLoan._id, 
-                        status: updatedLoan.status, 
-                        balance: updatedLoan.balance,
-                    }                   ,
-                    repayment: {
-                        amount:savedRepayment.amount,
-                        recordedBy: savedRepayment.recordedBy,
-                        Date: savedRepayment.createdOn
+            
+           const response = {
+                meta: {
+                    statusCode: 200,
+                    message: "Repayment was successfully processed"
+                },
+                data: { 
+                    result:{
+                        loan:{ 
+                            id:updatedLoan._id, 
+                            status: updatedLoan.status, 
+                            balance: updatedLoan.balance,
+                        }                   ,
+                        repayment: {
+                            amount:savedRepayment.amount,
+                            recordedBy: savedRepayment.recordedBy,
+                            Date: savedRepayment.createdOn
+                        }
                     }
                 }
-            }
-        })
+            };
+           // create idempotency
+            await Idempotency.create(
+                [{
+                    key: idempotencyKey,
+                    userId: adminOperator,
+                    status: "completed",
+                    response: response
+                }],
+                { session }
+            );
+
+        return response;
+       })
+
+       res.status(200).json(response)
     
     }catch(err) {
+        if (err.code === 11000 && err.keyPattern?.key) {
+            const existingRequest = await Idempotency.findOne({
+                key: idempotencyKey,
+                userId: adminOperator
+            });
+
+            if (existingRequest) {
+                return res
+                    .status(existingRequest.response.meta.statusCode)
+                    .json(existingRequest.response);
+            }
+        }
         next(err);
     } 
 }

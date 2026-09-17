@@ -16,7 +16,7 @@ const idempotencySchema = new mongoose.Schema(
 
         status: {
             type: String,
-            enum: ["processing", "completed", "failed"],
+            enum: ["completed"],
             required: true
         },
 

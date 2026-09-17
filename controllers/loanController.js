@@ -1,5 +1,5 @@
 const Loan = require('../models/loan');
-const {verifyInputValidation, validateTenor} = require('../utils/verifyLoanInputValidation');
+const {verifyInputValidation, validateTenor} = require('../utils/verifyLoanInputvalidation');
 const {calculateInterestRate} = require('../utils/calculateInterestRate');
 const { verifyExistingLoan } = require('../utils/verifyExistingLoan');
 const { businessLogic } = require('../utils/repaymentBusinessLogic');

@@ -1,4 +1,5 @@
 require('dotenv').config();
+const cors = require("cors");
 const express = require('express');
 const mongoose = require('mongoose');
 
@@ -9,11 +10,15 @@ const usersRoute = require('./routes/userRoutes');
 const loanRoute = require('./routes/loanRoutes');
 const adminRoute = require('./routes/adminRoutes');
 
-app.use(express.json());
-
 // conection variables
 const mongoURI = process.env.MONGODB_URI;
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 4000;
+app.use(express.json());
+
+app.use(cors({
+    origin: "http://localhost:5173"
+}));
+
 
 app.use(authRoutes);
 
@@ -52,5 +57,5 @@ mongoose
   })
   .catch(err => {
     console.log('MongoDB connection failed:', err);
-    process.exit(1);
+    //process.exit(1);
   });

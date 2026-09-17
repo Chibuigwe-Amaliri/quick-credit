@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/userauth');
+const {idempotencyMiddleware} = require('../middleware/idempotency');
 const adminController = require('../controllers/adminController');
 
 // Verify user
@@ -45,6 +46,7 @@ router.patch(
     authMiddleware.authenticateUser, 
     authMiddleware.loadUser, 
     authMiddleware.adminAuthorization, 
+    idempotencyMiddleware,
     adminController.postRepayment
 )
 
