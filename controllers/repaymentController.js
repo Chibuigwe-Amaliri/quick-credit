@@ -2,7 +2,7 @@ const Loan = require('../models/loan');
 const loanRepayment = require('../models/repayment');
 const Idempotency = require('../models/idempotency');
 const mongoose = require('mongoose');
-const { verifyMongoId } = require('../utils/verifyLoanInputValidation');
+const { verifyMongoId } = require('../utils/verifyLoanInputvalidation');
 
 const {validateRepaymentAmount} = require('../utils/validateRepaymentAmount');
 
@@ -11,33 +11,9 @@ exports.postLoanRepayment = async(req, res, next) => {
     const userId = req.userId;
     const repayment = req.body.loanRepayment;
     const loanId = req.params.loanId;
-    
     const idempotencyKey = req.get("Idempotency-key");
 
 try {
-    // check for the idempotency key
-    if(!idempotencyKey){
-        const error = new Error(
-            "Idempotency-Key header is required"
-        );
-        error.statusCode = 400;
-        throw error;
-    }
-
-    // check if the request has already been made
-    const existingRequest = await Idempotency.findOne({
-        key: idempotencyKey,
-        userId: userId
-    });
-
-    if(existingRequest) {
-        return res.status(
-            existingRequest.response.meta.statusCode
-        ).json(
-            existingRequest.response
-        )
-    }
-
     // Mongobe transaction to ensure atomicity of the repayment 
     const response = await mongoose.connection.transaction(async(session) => {
         const loanDoc = await Loan
@@ -56,7 +32,7 @@ try {
         const repaymentAmount = validateRepaymentAmount(loanDoc.balance, repayment, loanDoc.paymentInstallment);
 
         loanDoc.repayment += repaymentAmount;
-        loanDoc.balance = loanDoc.balance - repaymentAmount;
+        loanDoc.balance -= repaymentAmount;
 
         // Complete loan if fully paid
         if (loanDoc.balance === 0) {
