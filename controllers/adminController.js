@@ -2,7 +2,7 @@ const User = require('../models/user');
 const Loan = require('../models/loan');
 const Repayment = require('../models/repayment');
 const mongoose = require('mongoose');
-const Idempotency = require('../middleware/idempotency');
+const Idempotency = require('../models/idempotency');
 
 const { validateRepaymentAmount } = require('../utils/validateRepaymentAmount');
 const {verifyMongoId} = require('../utils/verifyLoanInputvalidation');
