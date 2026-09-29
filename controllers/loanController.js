@@ -1,5 +1,5 @@
 const Loan = require('../models/loan');
-const {verifyInputValidation, validateTenor} = require('../utils/verifyLoanInputvalidation');
+const {verifyInputValidation, verifyMongoId, validateTenor} = require('../utils/verifyLoanInputvalidation');
 const {calculateInterestRate} = require('../utils/calculateInterestRate');
 const { verifyExistingLoan } = require('../utils/verifyExistingLoan');
 const { businessLogic } = require('../utils/repaymentBusinessLogic');
@@ -69,3 +69,43 @@ exports.postLoan = async(req, res, next) => {
 
 }
 
+    exports.getAllUsersLoan = async(req, res, next) => {
+        const verifiedId = req.userId;
+    
+        try {
+            // Verify the loanId is a valid MongoDB ObjectId
+            verifyMongoId(verifiedId);
+            const userLoan = await Loan.find({userId: verifiedId});
+            if (!userLoan || userLoan.length === 0) {
+                const error = new Error("Loan not found");
+                error.statusCode = 404;
+                throw error;
+            }
+
+            const loanData = userLoan.map(loan => ({
+                loanId: loan._id,
+                userId: loan.userId,
+                loanAmount: loan.appliedAmount / 100,
+                tenor: loan.loanDuration,
+                interestRate: loan.interestRate,
+                interest: loan.interest / 100,
+                totalAmount: loan.totalAmount / 100,
+                paymentInstallment: loan.paymentInstallment / 100,
+                repayment: loan.repayment / 100,
+                balance: loan.balance / 100,
+                status: loan.status,
+            }));
+          
+            return res.status(200).json({
+                meta: {
+                    statusCode: 200,
+                    message: "Loan found successfully"
+                },
+                data: {
+                    result: loanData
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
