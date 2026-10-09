@@ -9,7 +9,7 @@ console.log(email, firstName, verificationToken, verificationTokenExpires);
     let html = fs.readFileSync(path.join(__dirname, '../views/email-verification.html'), 'utf8');
 
     const verificationLink =
-        `http://localhost:5173/verify-email?token=${verificationToken}`;
+        `https://quick-credit-frontend-olive.vercel.app/verify-email?token=${verificationToken}`;
 
         html = html.replace('{{verificationLink}}', verificationLink);
         html = html.replace('{{VERIFICATION_LINK}}', verificationLink);
