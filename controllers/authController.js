@@ -2,6 +2,8 @@ const { validationResult } = require('express-validator');
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { sendEmailVerification } = require('../service/emailService');
 
 exports.postSignUp = (req, res, next) => { 
 
@@ -19,6 +21,10 @@ exports.postSignUp = (req, res, next) => {
     const password = req.body.password;
     const address = req.body.address;
 
+    const verificationToken =
+    crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = Date.now() + 60 * 60 * 1000
+    
     User.findOne({email: email})
     .then(existingUser => {
 
@@ -41,17 +47,25 @@ exports.postSignUp = (req, res, next) => {
             firstName,
             lastName,
             password: hashedPassword,
-            address
+            address,
+            verificationToken,
+            verificationTokenExpires
         });
 
         return newUser.save();
     })
-    .then(user => {
+    .then(async user => {
         if (!user) {
             const error = new Error('Invalid user.');
             error.statusCode = 401;
             throw error; 
         }
+        await sendEmailVerification(
+            user.email, 
+            user.firstName,
+            user.verificationToken,
+            user.verificationTokenExpires
+        );
 
         return res.status(200)
         .json({ 
@@ -142,4 +156,36 @@ exports.postSignIn = (req, res, next) => {
         }
       next(err);
     })
+}
+
+exports.getVerifyEmail = async(req, res, next) => {
+    const token = req.query.token;
+
+    try {
+
+        const user = await User.findOne({verificationToken: token, verificationTokenExpires: {$gt: Date.now()}})
+    
+        if (!user) {
+            const error = new Error('Invalid or expired verification token');
+            error.statusCode = 401;
+            throw error;
+        }
+    
+        user.status = "verified";
+        user.verificationToken = null;
+        user.verificationTokenExpires = null;
+        await user.save();
+        res.status(200).json({
+            meta: {
+                statusCode: 200,
+                message: "Successfully verified, you can now login"
+            },
+            data: {
+                result:{}
+            }
+        })
+    }catch(err) {
+        next(err)
+    }
+
 }

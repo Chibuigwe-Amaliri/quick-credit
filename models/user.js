@@ -39,6 +39,14 @@ const userSchema = new mongoose.Schema(
       default: 'unverified',
     },
 
+    verificationToken : {
+      type: String
+    },
+    
+    verificationTokenExpires: {
+      type: Date
+    },
+
     isAdmin: {
       type: Boolean,
       default: false,
