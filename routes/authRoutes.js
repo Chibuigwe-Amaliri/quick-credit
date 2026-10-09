@@ -62,4 +62,6 @@ router.post('/api/v1/auth/signin',
     ],
     authController.postSignIn);
 
+router.get('/api/v1/verify-email', authController.getVerifyEmail);
+
 module.exports = router;
